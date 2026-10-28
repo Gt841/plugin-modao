@@ -7,7 +7,7 @@ import zipPack from 'vite-plugin-zip-pack';
 export default defineConfig({
   plugins: [
     svelte(),
-    viteStaticCopy({ targets: ['plugin.json', 'LICENSE', 'README.txt', 'icon.png'].map(src => ({src, dest:'.'})) }),
+    viteStaticCopy({ targets: ['plugin.json', 'LICENSE', 'README.md', 'icon.png'].map(src => ({src, dest:'.'})) }),
     zipPack({ inDir:'dist', outDir:'.', outFileName:'package.zip' }),
   ],
   build: {
