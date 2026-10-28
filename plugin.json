@@ -1,0 +1,17 @@
+{
+  "name": "plugin-modao",
+  "author": "Gt841",
+  "url": "https://github.com/Gt841/plugin-modao",
+  "version": "0.0.1",
+  "minAppVersion": "3.0.1",
+  "backends": ["windows", "linux", "darwin"],
+  "frontends": ["desktop"],
+  "displayName": {"default":"墨刀", "zh_CN":"墨刀", "en_US":"Modao"},
+  "description": {
+    "default":"独立会话嵌入墨刀工作台，浏览目录并在思源页签中打开原型和设计文件。非墨刀官方插件。",
+    "zh_CN":"独立会话嵌入墨刀工作台，浏览目录并在思源页签中打开原型和设计文件。非墨刀官方插件。",
+    "en_US":"Unofficial Modao workspace, file tree and editor tabs for SiYuan desktop."
+  },
+  "readme": {"default":"README.txt", "zh_CN":"README.txt", "en_US":"README.txt"},
+  "keywords": ["modao", "墨刀", "原型", "设计"]
+}
