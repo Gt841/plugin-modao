@@ -59,10 +59,11 @@ export function requestScript(path: string): string {
       const list = (value, keys) => Array.isArray(value) ? value.map(item => pick(item, keys)) : null;
       const data = {};
       if ('user' in body) data.user = pick(body.user, ['cid']);
-      for (const key of ['org','space']) if (key in body) data[key] = pick(body[key], ['cid','name','otype']);
+      if ('org' in body) data.org = pick(body.org, ['cid','name','otype']);
+      if ('space' in body) data.space = pick(body.space, ['cid','name','otype','root_team_cid']);
       for (const key of ['orgs','spaces']) if (key in body) data[key] = list(body[key], ['cid','name','otype']);
-      if ('teams' in body) data.teams = list(body.teams, ['cid','name','parent_cid','root_project']);
-      if ('projects' in body) data.projects = list(body.projects, ['cid','name','type','team_cid']);
+      if ('teams' in body) data.teams = list(body.teams, ['cid','name','parent_cid','root_project','space_cid','org_cid']);
+      if ('projects' in body) data.projects = list(body.projects, ['cid','name','type','team_cid','space_cid']);
       for (const key of ['total','total_count','has_more','next','next_page','next_cursor','page','page_size']) {
         if (key in body) data[key] = pick(body, [key])[key];
       }
@@ -74,6 +75,7 @@ export function requestScript(path: string): string {
 }
 export type WriteRequest =
   | { kind: 'create'; type: 'proto2' | 'design2'; teamCid: string; name: string }
+  | { kind: 'create-folder'; name: string; parentCid?: string; spaceCid?: string; orgCid?: string }
   | { kind: 'rename'; target: 'project' | 'team'; cid: string; name: string };
 
 interface WriteSpec {
@@ -104,6 +106,18 @@ function writeSpec(request: WriteRequest): WriteSpec {
       body: { newOpt: { name } },
     };
     throw new BridgeError('invalid');
+  }
+  if (request.kind === 'create-folder') {
+    for (const value of [request.parentCid, request.spaceCid, request.orgCid]) {
+      if (value !== undefined && !validCid(value)) throw new BridgeError('invalid');
+    }
+    if (!request.parentCid && !request.spaceCid) throw new BridgeError('invalid');
+    const team: Record<string, unknown> = { name, color: 'yellow', icon: '' };
+    if (request.parentCid) team.parent_cid = request.parentCid;
+    const body: Record<string, unknown> = { team };
+    if (request.spaceCid) body.space_cid = request.spaceCid;
+    if (request.orgCid) body.org_cid = request.orgCid;
+    return { method: 'POST', path: '/api/dashboard/v6/teams', body };
   }
   if (request.kind === 'rename') {
     if (!validCid(request.cid)) throw new BridgeError('invalid');

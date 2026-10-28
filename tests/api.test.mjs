@@ -73,7 +73,42 @@ test('rename maps files to projects and folders to teams', async () => {
   ]);
 });
 
-test('invalid create or rename input never reaches transport', async () => {
+test('createFolder sends trimmed names with folder and space context', async () => {
+  const source = transport({});
+  const api = new ModaoApi(source);
+  await api.createFolder({ parentCid: 'f1', spaceCid: 's1', orgCid: 'o1' }, '  新目录  ');
+  await api.createFolder({ spaceCid: 's1' }, '根目录');
+  assert.deepEqual(source.writes, [
+    { kind: 'create-folder', name: '新目录', parentCid: 'f1', spaceCid: 's1', orgCid: 'o1' },
+    { kind: 'create-folder', name: '根目录', spaceCid: 's1' },
+  ]);
+  assert.deepEqual(source.calls, []);
+});
+
+test('contents expose the space root used for root-level creation', async () => {
+  const personal = transport({'/api/dashboard/v5/me': {
+    teams: [
+      { cid: 'root', name: '个人文件', root_project: true, space_cid: 'root', org_cid: 'o1' },
+      { cid: 'f1', name: '目录', parent_cid: 'root', space_cid: 'root', org_cid: 'o1' },
+    ],
+    projects: [{ cid: 'p1', name: '首页', type: 'proto2', team_cid: 'f1', space_cid: 'root' }],
+  }});
+  const contents = await new ModaoApi(personal).contents();
+  assert.equal(contents.rootCid, 'root');
+  assert.equal(contents.spaceCid, 'root');
+  assert.equal(contents.orgCid, 'o1');
+  assert.deepEqual(contents.folders[1], { cid: 'f1', name: '目录', parent_cid: 'root', root_project: false, space_cid: 'root', org_cid: 'o1' });
+
+  const scoped = transport({'/api/dsh2/web_v1/space_entry/s1?org=o1': {
+    space: { cid: 's1', root_team_cid: 'r1' }, teams: [], projects: [],
+  }});
+  const result = await new ModaoApi(scoped).contents({ orgCid: 'o1', spaceCid: 's1' });
+  assert.equal(result.rootCid, 'r1');
+  assert.equal(result.spaceCid, 's1');
+  assert.equal(result.orgCid, 'o1');
+});
+
+test('invalid create, folder or rename input never reaches transport', async () => {
   const source = transport({});
   const api = new ModaoApi(source);
   for (const call of [
@@ -81,6 +116,9 @@ test('invalid create or rename input never reaches transport', async () => {
     () => api.createFile('proto2', '../f1', '原型'),
     () => api.createFile('proto2', 'f1', ''),
     () => api.createFile('design2', 'f1', 'a\nb'),
+    () => api.createFolder({ parentCid: '../f1' }, '目录'),
+    () => api.createFolder({ spaceCid: 's/1' }, '目录'),
+    () => api.createFolder({ orgCid: '' }, ''),
     () => api.rename('other', 'p1', '名字'),
     () => api.rename('file', '../p1', '名字'),
     () => api.rename('folder', 'f1', '   '),

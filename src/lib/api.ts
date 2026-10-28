@@ -8,7 +8,15 @@ export interface Transport {
 export type CreateType = 'proto2' | 'design2';
 export interface NamedItem { cid: string; name: string }
 export interface SpaceContext { orgCid: string; spaceCid: string }
-export interface Contents { folders: Folder[]; projects: Project[]; limited: boolean }
+export interface Contents {
+  folders: Folder[];
+  projects: Project[];
+  limited: boolean;
+  rootCid?: string;
+  spaceCid?: string;
+  orgCid?: string;
+}
+export interface CreateFolderTarget { parentCid?: string; spaceCid?: string; orgCid?: string }
 function object(value: unknown): Record<string, any> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BridgeError('schema');
   return value;
@@ -55,7 +63,12 @@ export class ModaoApi {
     const folders: Folder[] = list(body.teams).map(value => {
       const item = object(value);
       if (item.root_project != null && typeof item.root_project !== 'boolean') throw new BridgeError('schema');
-      return { ...named(item), parent_cid: optionalCid(item.parent_cid), root_project: item.root_project === true };
+      const folder: Folder = { ...named(item), parent_cid: optionalCid(item.parent_cid), root_project: item.root_project === true };
+      const folderSpace = optionalCid(item.space_cid);
+      const folderOrg = optionalCid(item.org_cid);
+      if (folderSpace) folder.space_cid = folderSpace;
+      if (folderOrg) folder.org_cid = folderOrg;
+      return folder;
     });
     const projects: Project[] = list(body.projects).map(value => {
       const item = object(value);
@@ -70,7 +83,20 @@ export class ModaoApi {
     const limited = !!(body.has_more || body.next || body.next_page || body.next_cursor)
       || (typeof body.total === 'number' && body.total > projects.length + folders.length)
       || (typeof body.total_count === 'number' && body.total_count > projects.length + folders.length);
-    return { folders, projects, limited };
+    // Creation at the space root needs the root team cid plus the owning space
+    // and organization. These are the same values the public client keeps in
+    // its workspace session; nothing else from the response is retained.
+    const space = body.space && typeof body.space === 'object' && !Array.isArray(body.space)
+      ? body.space as Record<string, unknown> : undefined;
+    const root = folders.find(folder => folder.root_project);
+    const rootCid = root?.cid ?? optionalCid(space?.root_team_cid);
+    const spaceCid = root?.space_cid ?? optionalCid(space?.cid) ?? context?.spaceCid;
+    const orgCid = root?.org_cid ?? optionalCid(space?.org_cid) ?? context?.orgCid;
+    const result: Contents = { folders, projects, limited };
+    if (rootCid) result.rootCid = rootCid;
+    if (spaceCid) result.spaceCid = spaceCid;
+    if (orgCid) result.orgCid = orgCid;
+    return result;
   }
   async createFile(type: CreateType, folderCid: string, name: string): Promise<void> {
     if (type !== 'proto2' && type !== 'design2') throw new BridgeError('invalid');
@@ -78,6 +104,20 @@ export class ModaoApi {
     const clean = normalizeName(name);
     if (!clean) throw new BridgeError('invalid');
     await this.transport.write({ kind: 'create', type, teamCid: folderCid, name: clean });
+  }
+  async createFolder(target: CreateFolderTarget, name: string): Promise<void> {
+    const clean = normalizeName(name);
+    if (!clean) throw new BridgeError('invalid');
+    const { parentCid, spaceCid, orgCid } = target;
+    for (const value of [parentCid, spaceCid, orgCid]) {
+      if (value !== undefined && !validCid(value)) throw new BridgeError('invalid');
+    }
+    if (!parentCid && !spaceCid) throw new BridgeError('invalid');
+    const request: Extract<WriteRequest, { kind: 'create-folder' }> = { kind: 'create-folder', name: clean };
+    if (parentCid) request.parentCid = parentCid;
+    if (spaceCid) request.spaceCid = spaceCid;
+    if (orgCid) request.orgCid = orgCid;
+    await this.transport.write(request);
   }
   async rename(kind: 'file' | 'folder', cid: string, name: string): Promise<void> {
     if (kind !== 'file' && kind !== 'folder') throw new BridgeError('invalid');

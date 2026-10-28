@@ -44,6 +44,18 @@ test('same-origin GET passes only required directory fields across the webview b
     projects: [{ cid: 'p1', name: '文件', type: 'proto2', team_cid: 'f1' }],
   } });
 });
+test('space projection keeps the root team and folder context needed for creation', async () => {
+  const result = await runScript('/api/dsh2/web_v1/space_entry/s1?org=o1', null, async () => jsonResponse({
+    space: { cid: 's1', root_team_cid: 'r1', secret: 'x' },
+    teams: [{ cid: 'f1', name: '目录', parent_cid: 'r1', root_project: false, space_cid: 's1', org_cid: 'o1', token: 'x' }],
+    projects: [{ cid: 'p1', name: '文件', type: 'proto2', team_cid: 'f1', space_cid: 's1', token: 'x' }],
+  }));
+  assert.deepEqual(JSON.parse(JSON.stringify(result)), { status: 200, data: {
+    space: { cid: 's1', root_team_cid: 'r1' },
+    teams: [{ cid: 'f1', name: '目录', parent_cid: 'r1', root_project: false, space_cid: 's1', org_cid: 'o1' }],
+    projects: [{ cid: 'p1', name: '文件', type: 'proto2', team_cid: 'f1', space_cid: 's1' }],
+  } });
+});
 test('user projection excludes email and login credentials', async () => {
   const result = await runScript(userPath, jsonResponse({ user: { cid: 'u1', email: 'private', token: 'secret' } }));
   assert.deepEqual(JSON.parse(JSON.stringify(result)), { status: 200, data: { user: { cid: 'u1' } } });
@@ -102,12 +114,34 @@ test('writeScript renames projects and folders with partial update bodies', asyn
   assert.deepEqual(JSON.parse(seen[1].options.body), { team: { name: '新目录' } });
 });
 
+test('writeScript creates folders through the v6 team route with workspace context', async () => {
+  const seen = [];
+  const capture = async (path, options) => { seen.push({ path, options }); return jsonResponse({ team: { cid: 'new' }, token: 'secret' }); };
+  await runWrite({ kind: 'create-folder', name: '新目录', parentCid: 'f1', spaceCid: 's1', orgCid: 'o1' }, null, capture);
+  await runWrite({ kind: 'create-folder', name: '根目录', spaceCid: 's1' }, null, capture);
+  assert.equal(seen[0].path, '/api/dashboard/v6/teams');
+  assert.equal(seen[0].options.method, 'POST');
+  assert.equal(seen[0].options.credentials, 'same-origin');
+  assert.deepEqual(JSON.parse(seen[0].options.body), {
+    org_cid: 'o1', space_cid: 's1',
+    team: { name: '新目录', color: 'yellow', icon: '', parent_cid: 'f1' },
+  });
+  assert.equal(seen[1].path, '/api/dashboard/v6/teams');
+  assert.deepEqual(JSON.parse(seen[1].options.body), {
+    space_cid: 's1', team: { name: '根目录', color: 'yellow', icon: '' },
+  });
+});
+
 test('writeScript fails closed on unsupported types, malicious CIDs and invalid names', () => {
   for (const request of [
     { kind: 'create', type: 'bomx2', teamCid: 'f1', name: '白板' },
     { kind: 'create', type: 'proto2', teamCid: '../f1', name: '原型' },
     { kind: 'create', type: 'design2', teamCid: 'f1', name: '' },
     { kind: 'create', type: 'design2', teamCid: 'f1', name: 'a\nb' },
+    { kind: 'create-folder', parentCid: '../f1', name: '目录' },
+    { kind: 'create-folder', spaceCid: 's 1', name: '目录' },
+    { kind: 'create-folder', orgCid: 'o/1', name: '目录' },
+    { kind: 'create-folder', name: 'a\nb' },
     { kind: 'rename', target: 'project', cid: '../p1', name: '改名' },
     { kind: 'rename', target: 'team', cid: 'f1', name: '   ' },
     { kind: 'rename', target: 'other', cid: 'f1', name: '改名' },

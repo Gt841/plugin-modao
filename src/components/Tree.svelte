@@ -2,15 +2,17 @@
   import { Menu } from 'siyuan';
   import { fileMeta, normalizeName, type TreeNode } from '../lib/model.ts';
   type CreateType = 'proto2' | 'design2';
+  type DialogType = CreateType | 'folder';
   export let nodes: TreeNode[] = [];
   export let onOpen: (node: TreeNode) => void;
   export let onCreate: (type: CreateType, folder: TreeNode, name: string) => Promise<void> = async () => {};
+  export let onCreateFolder: (folder: TreeNode, name: string) => Promise<void> = async () => {};
   export let onRename: (node: TreeNode, name: string) => Promise<void> = async () => {};
   export let onExternal: (node: TreeNode) => void = () => {};
   export let onCopy: (node: TreeNode) => void = () => {};
   export let onRefresh: (node: TreeNode) => Promise<void> = async () => {};
   let expanded = new Set<string>();
-  let dialog: null | { mode: 'create'; type: CreateType; node: TreeNode } | { mode: 'rename'; node: TreeNode } = null;
+  let dialog: null | { mode: 'create'; type: DialogType; node: TreeNode } | { mode: 'rename'; node: TreeNode } = null;
   let name = '';
   let saving = false;
   let error = '';
@@ -25,7 +27,7 @@
   function focusInput() {
     void Promise.resolve().then(() => { input?.focus(); input?.select(); });
   }
-  function startCreate(type: CreateType, folder: TreeNode) {
+  function startCreate(type: DialogType, folder: TreeNode) {
     error = ''; name = '';
     dialog = { mode: 'create', type, node: folder };
     focusInput();
@@ -45,8 +47,10 @@
     if (!clean) { error = '名称需为 1–80 个字符，且不能包含控制字符。'; return; }
     saving = true; error = '';
     try {
-      if (dialog.mode === 'create') await onCreate(dialog.type, dialog.node, clean);
-      else await onRename(dialog.node, clean);
+      if (dialog.mode === 'create') {
+        if (dialog.type === 'folder') await onCreateFolder(dialog.node, clean);
+        else await onCreate(dialog.type, dialog.node, clean);
+      } else await onRename(dialog.node, clean);
       dialog = null;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : '操作失败，请重试。';
@@ -77,6 +81,7 @@
     if (node.kind === 'folder') {
       menu.addItem({ icon: '', label: '新建原型', click: () => startCreate('proto2', node) });
       menu.addItem({ icon: '', label: '新建设计', click: () => startCreate('design2', node) });
+      menu.addItem({ icon: '', label: '新建文件夹', click: () => startCreate('folder', node) });
       menu.addItem({ icon: '', label: '刷新子节点', click: () => { void onRefresh(node); } });
     } else {
       const meta = fileMeta(node.fileType);
@@ -102,21 +107,26 @@
           aria-expanded={node.kind === 'folder' ? expanded.has(node.key) : undefined}
           on:click={() => activate(node)}
           on:contextmenu={(event) => showMenu(node, event)}>
-          <svg aria-hidden="true" class:modao-rotated={expanded.has(node.key)}>
+          <svg aria-hidden="true" class="modao-node-chevron" class:modao-rotated={expanded.has(node.key)}>
             <use href={node.kind === 'folder' ? '#modao_chevron' : (meta ? meta.icon : '#modao_type_other')} />
           </svg>
+          {#if node.kind === 'folder'}
+            <svg aria-hidden="true" class="modao-node-icon"><use href="#modao_folder" /></svg>
+          {/if}
           <span>{node.name || '未命名'}</span>
           {#if meta && !meta.openable}
             <span class="modao-type-badge" title="需在墨刀工作台打开">{meta.label}</span>
           {/if}
         </button>
         <button class="modao-more" title="更多操作" aria-label={`更多操作：${node.name || '未命名'}`}
-          aria-haspopup="menu" on:click={(event) => showMenu(node, event)}>more</button>
+          aria-haspopup="menu" on:click={(event) => showMenu(node, event)}><span aria-hidden="true">⋮</span></button>
       </div>
       {#if dialog && dialog.node.key === node.key}
         <div class="modao-dialog" role="dialog" aria-label={dialog.mode === 'create' ? '新建文件' : '重命名'} on:keydown={escape}>
           <p class="modao-dialog-title">
-            {dialog.mode === 'create' ? `在“${dialog.node.name || '未命名'}”中${dialog.type === 'proto2' ? '新建原型' : '新建设计'}` : `重命名“${dialog.node.name || '未命名'}”`}
+            {dialog.mode === 'create'
+              ? `在“${dialog.node.name || '未命名'}”中${dialog.type === 'folder' ? '新建文件夹' : dialog.type === 'proto2' ? '新建原型' : '新建设计'}`
+              : `重命名“${dialog.node.name || '未命名'}”`}
           </p>
           <form on:submit|preventDefault={submit}>
             <input bind:this={input} bind:value={name} aria-label="名称" maxlength="80" placeholder="输入名称" disabled={saving} />
@@ -130,7 +140,7 @@
       {/if}
       {#if node.kind === 'folder' && expanded.has(node.key)}
         <div class="modao-indent">
-          {#if node.children.length}<svelte:self nodes={node.children} {onOpen} {onCreate} {onRename} {onExternal} {onCopy} {onRefresh} />
+          {#if node.children.length}<svelte:self nodes={node.children} {onOpen} {onCreate} {onCreateFolder} {onRename} {onExternal} {onCopy} {onRefresh} />
           {:else}<p class="modao-note">暂无文件</p>{/if}
         </div>
       {/if}

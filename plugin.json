@@ -2,7 +2,7 @@
   "name": "plugin-modao",
   "author": "Gt841",
   "url": "https://github.com/Gt841/plugin-modao",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "minAppVersion": "3.0.1",
   "backends": ["windows", "linux", "darwin"],
   "frontends": ["desktop"],

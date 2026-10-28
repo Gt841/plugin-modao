@@ -14,6 +14,8 @@ export interface Folder {
   name: string;
   parent_cid?: string | null;
   root_project?: boolean;
+  space_cid?: string;
+  org_cid?: string;
 }
 
 export interface TreeNode {

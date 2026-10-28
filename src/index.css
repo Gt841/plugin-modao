@@ -19,9 +19,12 @@
 .modao-tree-line { display:flex; align-items:center; gap:2px; }
 .modao-tree-line .modao-row { flex:1; min-width:0; }
 .modao-tree-line .modao-row span { min-width:0; flex:0 1 auto; }
-.modao-tree-line .modao-more { flex:0 0 auto; height:18px; padding:0 7px; border:1px solid var(--b3-border-color); border-radius:9px; background:transparent; color:var(--b3-theme-on-surface); font-size:10px; line-height:16px; opacity:.55; }
-.modao-tree-line:hover .modao-more, .modao-tree-line .modao-more:hover, .modao-tree-line .modao-more:focus-visible { opacity:1; }
+.modao-row svg.modao-node-chevron { height:12px; width:12px; flex:0 0 12px; opacity:.7; }
+.modao-row svg.modao-node-icon { height:15px; width:15px; flex:0 0 15px; opacity:.9; }
+.modao-tree-line .modao-more { flex:0 0 20px; width:20px; height:22px; padding:0; border:0; border-radius:4px; background:transparent; color:var(--b3-theme-on-surface); font-size:16px; line-height:1; opacity:0; }
+.modao-tree-line:hover .modao-more, .modao-tree-line .modao-more:focus-visible { opacity:1; }
 .modao-tree-line .modao-more:hover { background:var(--b3-list-hover); color:var(--b3-theme-on-background); }
+.modao-tree-line .modao-more span { line-height:1; }
 .modao-type-badge { margin-left:auto; flex:0 0 auto; padding:0 4px; border-radius:3px; background:var(--b3-theme-surface); color:var(--b3-theme-on-surface); font-size:10px; line-height:15px; }
 .modao-row span.modao-type-badge { overflow:visible; text-overflow:clip; }
 .modao-dialog { margin:4px 0 6px 14px; padding:8px; border:1px solid var(--b3-border-color); border-radius:4px; background:var(--b3-theme-surface); }

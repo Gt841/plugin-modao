@@ -102,6 +102,8 @@ test('tree shows a distinct icon and workspace badge for every file type', async
   try {
     findButton(ui.target, '目录').click(); await flush();
     const row = name => [...ui.target.querySelectorAll('button.modao-row')].find(b => b.textContent.includes(name));
+    assert.equal(row('目录').querySelector('use[href="#modao_folder"]').getAttribute('href'), '#modao_folder');
+    assert.equal(moreButton(ui.target, '目录').textContent.trim(), '⋮');
     assert.equal(row('首页').querySelector('use').getAttribute('href'), '#modao_type_proto');
     assert.equal(row('设计稿').querySelector('use').getAttribute('href'), '#modao_type_design');
     assert.equal(row('白板稿').querySelector('use').getAttribute('href'), '#modao_type_board');
@@ -124,7 +126,7 @@ test('node menus offer file-specific actions and refresh folders in place', asyn
   });
   try {
     moreButton(ui.target, '目录').click(); await flush();
-    assert.deepEqual(menuLabels(), ['新建原型', '新建设计', '刷新子节点', '重命名']);
+    assert.deepEqual(menuLabels(), ['新建原型', '新建设计', '新建文件夹', '刷新子节点', '重命名']);
     menuButton('刷新子节点').click(); await flush();
     assert.deepEqual(refreshed, ['f']);
     assert.equal(document.querySelector('[role="menu"]'), null, 'menu closes after an action');
@@ -152,18 +154,19 @@ test('node menus offer file-specific actions and refresh folders in place', asyn
   } finally { ui.cleanup(); }
 });
 
-test('folder menu creates only prototypes and designs, and rename works for files and folders', async () => {
+test('folder menu creates files and folders, and rename works for files and folders', async () => {
   const Tree = await component('src/components/Tree.svelte');
-  const created = []; const renamed = [];
+  const created = []; const folders = []; const renamed = [];
   const ui = mount(Tree, {
     nodes: treeNodes, onOpen: () => {},
     onCreate: async (...args) => { created.push(args); },
+    onCreateFolder: async (...args) => { folders.push(args); },
     onRename: async (...args) => { renamed.push(args); },
   });
   try {
     findButton(ui.target, '目录').click(); await flush();
     moreButton(ui.target, '目录').click(); await flush();
-    assert.deepEqual(menuLabels(), ['新建原型', '新建设计', '刷新子节点', '重命名']);
+    assert.deepEqual(menuLabels(), ['新建原型', '新建设计', '新建文件夹', '刷新子节点', '重命名']);
     menuButton('新建原型').click(); await flush();
     let dialog = ui.target.querySelector('[role="dialog"]');
     assert.ok(dialog, 'create dialog must open');
@@ -172,6 +175,15 @@ test('folder menu creates only prototypes and designs, and rename works for file
     findButton(dialog, '确定').click(); await flush();
     assert.deepEqual(created, [['proto2', treeNodes[0], '新原型']]);
     assert.equal(ui.target.querySelector('[role="dialog"]'), null, 'dialog closes after success');
+
+    moreButton(ui.target, '目录').click(); await flush();
+    menuButton('新建文件夹').click(); await flush();
+    dialog = ui.target.querySelector('[role="dialog"]');
+    assert.match(dialog.textContent, /新建文件夹/);
+    const folderInput = dialog.querySelector('input[aria-label="名称"]');
+    folderInput.value = '  新子目录  '; folderInput.dispatchEvent(new dom.window.Event('input')); await flush();
+    findButton(dialog, '确定').click(); await flush();
+    assert.deepEqual(folders, [[treeNodes[0], '新子目录']]);
 
     moreButton(ui.target, '首页').click(); await flush();
     menuButton('重命名').click(); await flush();
@@ -185,8 +197,8 @@ test('folder menu creates only prototypes and designs, and rename works for file
     moreButton(ui.target, '目录').click(); await flush();
     menuButton('重命名').click(); await flush();
     dialog = ui.target.querySelector('[role="dialog"]');
-    const folderInput = dialog.querySelector('input[aria-label="名称"]');
-    folderInput.value = '新目录'; folderInput.dispatchEvent(new dom.window.Event('input')); await flush();
+    const renameFolderInput = dialog.querySelector('input[aria-label="名称"]');
+    renameFolderInput.value = '新目录'; renameFolderInput.dispatchEvent(new dom.window.Event('input')); await flush();
     findButton(dialog, '确定').click(); await flush();
     assert.deepEqual(renamed.at(-1), [treeNodes[0], '新目录']);
   } finally { ui.cleanup(); }
@@ -251,6 +263,68 @@ test('source creates files and renames entries through the API without collapsin
     findButton(renameDialog, '确定').click(); await flush();
     assert.deepEqual(writes.at(-1), ['rename', 'file', 'p2', '改名页']);
     assert.ok(findButton(ui.target, '改名页'));
+  } finally { ui.cleanup(); }
+});
+
+test('space menus create files and folders at the current root', async () => {
+  const Source = await component('src/components/Source.svelte');
+  let projects = [{ cid: 'p1', name: '页一', type: 'proto2', team_cid: 'root' }];
+  const writes = [];
+  const api = {
+    contents: async () => ({ folders: [{ cid: 'root', name: '个人文件', root_project: true, space_cid: 'root' }], projects: [...projects], limited: false, rootCid: 'root', spaceCid: 'root' }),
+    createFile: async (type, folderCid, name) => { writes.push(['file', type, folderCid, name]); projects.push({ cid: 'p2', name, type, team_cid: folderCid }); },
+    createFolder: async (target, name) => { writes.push(['folder', target, name]); },
+  };
+  const ui = mount(Source, { name: '个人文件', kind: 'personal', api, onOpen: () => {} });
+  try {
+    findButton(ui.target, '个人文件').click(); await flush();
+    moreButton(ui.target, '个人文件').click(); await flush();
+    assert.deepEqual(menuLabels(), ['新建原型', '新建设计', '新建文件夹', '刷新子节点']);
+    menuButton('新建原型').click(); await flush();
+    let dialog = ui.target.querySelector('[role="dialog"]');
+    let input = dialog.querySelector('input[aria-label="名称"]');
+    input.value = '空间新页面'; input.dispatchEvent(new dom.window.Event('input')); await flush();
+    findButton(dialog, '确定').click(); await flush();
+    assert.deepEqual(writes, [['file', 'proto2', 'root', '空间新页面']]);
+    assert.ok(findButton(ui.target, '空间新页面'), 'space-created file must appear after reload');
+
+    moreButton(ui.target, '个人文件').click(); await flush();
+    menuButton('新建文件夹').click(); await flush();
+    dialog = ui.target.querySelector('[role="dialog"]');
+    assert.match(dialog.textContent, /新建文件夹/);
+    input = dialog.querySelector('input[aria-label="名称"]');
+    input.value = '空间新目录'; input.dispatchEvent(new dom.window.Event('input')); await flush();
+    findButton(dialog, '确定').click(); await flush();
+    assert.deepEqual(writes.at(-1), ['folder', { spaceCid: 'root' }, '空间新目录']);
+  } finally { ui.cleanup(); }
+});
+
+test('org space creation carries the selected organization and space', async () => {
+  const Source = await component('src/components/Source.svelte');
+  const writes = [];
+  const api = {
+    contents: async () => ({ folders: [], projects: [], limited: false }),
+    createFile: async (...args) => { writes.push(['file', ...args]); },
+    createFolder: async (...args) => { writes.push(['folder', ...args]); },
+  };
+  const ui = mount(Source, { name: '产品空间', kind: 'space', orgCid: 'o1', spaceCid: 's1', api, onOpen: () => {} });
+  try {
+    findButton(ui.target, '产品空间').click(); await flush();
+    moreButton(ui.target, '产品空间').click(); await flush();
+    menuButton('新建设计').click(); await flush();
+    let dialog = ui.target.querySelector('[role="dialog"]');
+    let input = dialog.querySelector('input[aria-label="名称"]');
+    input.value = '空间设计'; input.dispatchEvent(new dom.window.Event('input')); await flush();
+    findButton(dialog, '确定').click(); await flush();
+    assert.deepEqual(writes, [['file', 'design2', 's1', '空间设计']]);
+
+    moreButton(ui.target, '产品空间').click(); await flush();
+    menuButton('新建文件夹').click(); await flush();
+    dialog = ui.target.querySelector('[role="dialog"]');
+    input = dialog.querySelector('input[aria-label="名称"]');
+    input.value = '空间目录'; input.dispatchEvent(new dom.window.Event('input')); await flush();
+    findButton(dialog, '确定').click(); await flush();
+    assert.deepEqual(writes.at(-1), ['folder', { spaceCid: 's1', orgCid: 'o1' }, '空间目录']);
   } finally { ui.cleanup(); }
 });
 

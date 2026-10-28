@@ -11,6 +11,7 @@ import './index.css';
 const TAB_TYPE = 'modao_view';
 const ICONS = `<symbol id="modao_logo" viewBox="0 0 24 24"><rect x="2" y="2" width="4" height="9" rx="0.3"/><rect x="9" y="2" width="4" height="9" rx="0.3"/><path d="M17 2h5v6c0 7-3 11-8 14l-2-4c4-2 5-5 5-10z"/></symbol>
 <symbol id="modao_chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7-1.5-1.5L13 12 7.5 6.5z"/></symbol>
+<symbol id="modao_folder" viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.4c.4 0 .8.16 1.06.44L11.5 7h8A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></symbol>
 <symbol id="modao_refresh" viewBox="0 0 24 24"><path d="M20 4v7h-7l2.7-2.7A6 6 0 1 0 18 14h2a8 8 0 1 1-3-7.1z"/></symbol>
 <symbol id="modao_login" viewBox="0 0 24 24"><path d="M14 3h7v18h-7v-2h5V5h-5zM10 7l5 5-5 5-1.4-1.4 2.6-2.6H2v-2h9.2L8.6 8.4z"/></symbol>
 <symbol id="modao_logout" viewBox="0 0 24 24"><path d="M3 3h8v2H5v14h6v2H3zM17 7l5 5-5 5-1.4-1.4 2.6-2.6H9v-2h9.2l-2.6-2.6z"/></symbol>
