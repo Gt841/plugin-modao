@@ -1,4 +1,6 @@
-export type ErrorKind = 'not-ready' | 'authentication' | 'forbidden' | 'not-found' | 'schema' | 'network' | 'timeout' | 'cancelled' | 'http';
+import { normalizeName, validCid } from './model.ts';
+
+export type ErrorKind = 'not-ready' | 'authentication' | 'forbidden' | 'not-found' | 'schema' | 'network' | 'timeout' | 'cancelled' | 'http' | 'invalid' | 'rejected' | 'conflict';
 const messages: Record<ErrorKind, string> = {
   'not-ready': '墨刀会话尚未就绪，请打开工作台登录后刷新。',
   authentication: '请在墨刀工作台完成登录，再点击“刷新目录”。',
@@ -9,6 +11,9 @@ const messages: Record<ErrorKind, string> = {
   timeout: '墨刀请求超时，请稍后重试。',
   cancelled: '请求已取消。',
   http: '墨刀服务暂时不可用，请稍后重试。',
+  invalid: '名称需为 1–80 个字符，且不能包含控制字符。',
+  rejected: '墨刀拒绝了这次修改，请检查名称或权限后重试。',
+  conflict: '名称已存在，请换一个名称后重试。',
 };
 export class BridgeError extends Error {
   kind: ErrorKind;
@@ -67,6 +72,76 @@ export function requestScript(path: string): string {
     } finally { clearTimeout(timeout); }
   })()`;
 }
+export type WriteRequest =
+  | { kind: 'create'; type: 'proto2' | 'design2'; teamCid: string; name: string }
+  | { kind: 'rename'; target: 'project' | 'team'; cid: string; name: string };
+
+interface WriteSpec {
+  method: 'POST' | 'PUT';
+  path: string;
+  body: unknown;
+}
+
+function jsonLiteral(value: unknown): string {
+  return JSON.stringify(value).replace(/[\u2028\u2029]/g, char => `\\u${char.charCodeAt(0).toString(16)}`);
+}
+
+// Creation and renaming use the same internal routes as the public client.
+// Only the two approved project types can be created; delete and move are not exposed.
+function writeSpec(request: WriteRequest): WriteSpec {
+  const name = normalizeName(request?.name);
+  if (!name) throw new BridgeError('invalid');
+  if (request.kind === 'create') {
+    if (!validCid(request.teamCid)) throw new BridgeError('invalid');
+    if (request.type === 'proto2') return {
+      method: 'POST',
+      path: `/flpak/w-paknew?upperType=project-basic&type=proto2&teamCid=${request.teamCid}`,
+      body: { name, device: 'iphone', model: 'iPhoneX', width: 375, height: 812 },
+    };
+    if (request.type === 'design2') return {
+      method: 'POST',
+      path: `/api/design/web_v1/create_design_project?teamCid=${request.teamCid}`,
+      body: { newOpt: { name } },
+    };
+    throw new BridgeError('invalid');
+  }
+  if (request.kind === 'rename') {
+    if (!validCid(request.cid)) throw new BridgeError('invalid');
+    if (request.target === 'project') return {
+      method: 'PUT',
+      path: `/api/dashboard/v5/projects/${request.cid}`,
+      body: { project: { cid: request.cid, name } },
+    };
+    if (request.target === 'team') return {
+      method: 'PUT',
+      path: `/api/dashboard/v5/teams/${request.cid}`,
+      body: { team: { name } },
+    };
+    throw new BridgeError('invalid');
+  }
+  throw new BridgeError('invalid');
+}
+
+// Writes never return response bodies; the caller refreshes the directory instead.
+export function writeScript(request: WriteRequest): string {
+  const { method, path, body } = writeSpec(request);
+  return `(async () => {
+    if (location.origin !== 'https://modao.cc') return {error:'authentication'};
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    try {
+      const response = await fetch(${jsonLiteral(path)}, {
+        method:${jsonLiteral(method)}, credentials:'same-origin', redirect:'error',
+        headers:{accept:'application/json','content-type':'application/json'},
+        body:${jsonLiteral(JSON.stringify(body))}, signal:controller.signal
+      });
+      return {status:response.status};
+    } catch (error) {
+      return {error:controller.signal.aborted ? 'timeout' : 'network'};
+    } finally { clearTimeout(timeout); }
+  })()`;
+}
+
 export interface GuestPage {
   getURL(): string;
   executeJavaScript(script: string): Promise<unknown>;
@@ -93,8 +168,7 @@ export class SessionBridge {
   dispose(): void {
     this.disposed = true; this.invalidate(); this.page = undefined;
   }
-  async get(path: string): Promise<unknown> {
-    const script = requestScript(path);
+  private async run(script: string, timeout: number): Promise<Record<string, any>> {
     if (this.disposed) throw new BridgeError('cancelled');
     const page = this.page;
     if (!page) throw new BridgeError('not-ready');
@@ -108,24 +182,38 @@ export class SessionBridge {
     const guard = new Promise<never>((_, reject) => {
       cancel = () => reject(new BridgeError('cancelled'));
       this.pending.add(cancel);
-      timer = setTimeout(() => reject(new BridgeError('timeout')), 15000);
+      timer = setTimeout(() => reject(new BridgeError('timeout')), timeout);
     });
     try {
       const result: any = await Promise.race([page.executeJavaScript(script), guard]);
       if (epoch !== this.epoch || this.disposed) throw new BridgeError('cancelled');
       if (!result || typeof result !== 'object') throw new BridgeError('schema');
       if (result.error) throw new BridgeError(result.error in messages ? result.error : 'network');
-      if (result.status === 401) throw new BridgeError('authentication', 401);
-      if (result.status === 403) throw new BridgeError('forbidden', 403);
-      if (result.status === 404) throw new BridgeError('not-found', 404);
-      if (!(result.status >= 200 && result.status < 300)) throw new BridgeError('http', result.status);
-      if (!result.data || typeof result.data !== 'object') throw new BridgeError('schema');
-      return result.data;
+      if (typeof result.status !== 'number') throw new BridgeError('schema');
+      return result;
     } catch (error) {
       if (error instanceof BridgeError) throw error;
       throw new BridgeError('network');
     } finally {
       clearTimeout(timer); this.pending.delete(cancel);
     }
+  }
+  async get(path: string): Promise<unknown> {
+    const result = await this.run(requestScript(path), 15000);
+    if (result.status === 401) throw new BridgeError('authentication', 401);
+    if (result.status === 403) throw new BridgeError('forbidden', 403);
+    if (result.status === 404) throw new BridgeError('not-found', 404);
+    if (!(result.status >= 200 && result.status < 300)) throw new BridgeError('http', result.status);
+    if (!result.data || typeof result.data !== 'object') throw new BridgeError('schema');
+    return result.data;
+  }
+  async write(request: WriteRequest): Promise<void> {
+    const result = await this.run(writeScript(request), 25000);
+    if (result.status === 400) throw new BridgeError('rejected', 400);
+    if (result.status === 401) throw new BridgeError('authentication', 401);
+    if (result.status === 403) throw new BridgeError('forbidden', 403);
+    if (result.status === 404) throw new BridgeError('not-found', 404);
+    if (result.status === 409) throw new BridgeError('conflict', 409);
+    if (!(result.status >= 200 && result.status < 300)) throw new BridgeError('http', result.status);
   }
 }

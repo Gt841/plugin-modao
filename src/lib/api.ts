@@ -1,7 +1,11 @@
-import { BridgeError } from './bridge.ts';
-import { validCid, type Folder, type Project } from './model.ts';
+import { BridgeError, type WriteRequest } from './bridge.ts';
+import { normalizeName, validCid, type Folder, type Project } from './model.ts';
 
-export interface Transport { get(path: string): Promise<unknown> }
+export interface Transport {
+  get(path: string): Promise<unknown>;
+  write(request: WriteRequest): Promise<void>;
+}
+export type CreateType = 'proto2' | 'design2';
 export interface NamedItem { cid: string; name: string }
 export interface SpaceContext { orgCid: string; spaceCid: string }
 export interface Contents { folders: Folder[]; projects: Project[]; limited: boolean }
@@ -67,5 +71,19 @@ export class ModaoApi {
       || (typeof body.total === 'number' && body.total > projects.length + folders.length)
       || (typeof body.total_count === 'number' && body.total_count > projects.length + folders.length);
     return { folders, projects, limited };
+  }
+  async createFile(type: CreateType, folderCid: string, name: string): Promise<void> {
+    if (type !== 'proto2' && type !== 'design2') throw new BridgeError('invalid');
+    if (!validCid(folderCid)) throw new BridgeError('invalid');
+    const clean = normalizeName(name);
+    if (!clean) throw new BridgeError('invalid');
+    await this.transport.write({ kind: 'create', type, teamCid: folderCid, name: clean });
+  }
+  async rename(kind: 'file' | 'folder', cid: string, name: string): Promise<void> {
+    if (kind !== 'file' && kind !== 'folder') throw new BridgeError('invalid');
+    if (!validCid(cid)) throw new BridgeError('invalid');
+    const clean = normalizeName(name);
+    if (!clean) throw new BridgeError('invalid');
+    await this.transport.write({ kind: 'rename', target: kind === 'file' ? 'project' : 'team', cid, name: clean });
   }
 }

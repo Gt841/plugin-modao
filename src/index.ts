@@ -13,7 +13,14 @@ const ICONS = `<symbol id="modao_logo" viewBox="0 0 24 24"><rect x="2" y="2" wid
 <symbol id="modao_chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7-1.5-1.5L13 12 7.5 6.5z"/></symbol>
 <symbol id="modao_refresh" viewBox="0 0 24 24"><path d="M20 4v7h-7l2.7-2.7A6 6 0 1 0 18 14h2a8 8 0 1 1-3-7.1z"/></symbol>
 <symbol id="modao_login" viewBox="0 0 24 24"><path d="M14 3h7v18h-7v-2h5V5h-5zM10 7l5 5-5 5-1.4-1.4 2.6-2.6H2v-2h9.2L8.6 8.4z"/></symbol>
-<symbol id="modao_logout" viewBox="0 0 24 24"><path d="M3 3h8v2H5v14h6v2H3zM17 7l5 5-5 5-1.4-1.4 2.6-2.6H9v-2h9.2l-2.6-2.6z"/></symbol>`;
+<symbol id="modao_logout" viewBox="0 0 24 24"><path d="M3 3h8v2H5v14h6v2H3zM17 7l5 5-5 5-1.4-1.4 2.6-2.6H9v-2h9.2l-2.6-2.6z"/></symbol>
+<symbol id="modao_type_proto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18.5h4"/></symbol>
+<symbol id="modao_type_design" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L20 8l-4-4L4 16z"/><path d="M14 6l4 4"/></symbol>
+<symbol id="modao_type_board" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21l4-5 4 5"/></symbol>
+<symbol id="modao_type_ppt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="12" rx="1.5"/><path d="M12 15v5M2 21h20"/></symbol>
+<symbol id="modao_type_flow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="6" rx="1.5"/><rect x="14" y="15" width="7" height="6" rx="1.5"/><path d="M6.5 9v5a2 2 0 0 0 2 2H14"/></symbol>
+<symbol id="modao_type_mind" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="6" height="6" rx="1.5"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/></symbol>
+<symbol id="modao_type_other" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v4h4"/></symbol>`;
 
 export default class ModaoPlugin extends Plugin {
   private dock?: Dock;
@@ -76,6 +83,8 @@ export default class ModaoPlugin extends Plugin {
           api:plugin.api, bridge:plugin.bridge, sessionActive:!plugin.loggingOut,
           onWorkspace:() => { void plugin.openView(WORKSPACE_URL, '墨刀工作台').catch(() => showMessage('无法打开墨刀工作台。',6000,'error')); },
           onOpen:(node:TreeNode) => { void plugin.openFile(node).catch(() => showMessage('无法打开墨刀文件。',6000,'error')); },
+          onExternal:(node:TreeNode) => plugin.openNodeExternal(node),
+          onCopy:(node:TreeNode) => plugin.copyNodeLink(node),
           onLogout:() => plugin.confirmLogout(),
         }});
       },
@@ -109,6 +118,20 @@ export default class ModaoPlugin extends Plugin {
       const shell = electron.shell || (window as any).require('@electron/remote').shell;
       Promise.resolve(shell.openExternal(url)).catch(() => showMessage('无法打开浏览器。',6000,'error'));
     } catch { showMessage('当前环境不支持打开外部浏览器。',6000,'error'); }
+  }
+  private openNodeExternal(node: TreeNode): void {
+    const url = editorUrl(node.fileType || '', node.cid);
+    if (!url) { showMessage('此文件类型暂不支持在浏览器打开，请在墨刀工作台中查看。',6000,'error'); return; }
+    this.openExternal(url);
+  }
+  private copyNodeLink(node: TreeNode): void {
+    const url = editorUrl(node.fileType || '', node.cid);
+    if (!url) { showMessage('此文件类型暂不支持复制在线链接，请在墨刀工作台中查看。',6000,'error'); return; }
+    try {
+      void navigator.clipboard.writeText(url)
+        .then(() => showMessage('在线链接已复制。'))
+        .catch(() => showMessage('无法写入剪贴板，请手动复制地址。',6000,'error'));
+    } catch { showMessage('无法写入剪贴板，请手动复制地址。',6000,'error'); }
   }
   async confirmLogout(): Promise<boolean> {
     if (this.loggingOut || this.disposed) return false;

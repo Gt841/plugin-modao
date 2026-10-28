@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  validCid, editorUrl, safeViewUrl, buildTree,
+  validCid, editorUrl, safeViewUrl, buildTree, fileMeta, normalizeName,
 } from '../src/lib/model.ts';
 
 function flatten(nodes) {
@@ -96,6 +96,48 @@ test('safeViewUrl rejects malicious URLs before browser normalization', () => {
     'https://modao.cc/design/editor/ab\nc', 'https://modao.cc/workspace/home\0',
   ]) {
     assert.equal(safeViewUrl(url), false, String(url));
+  }
+});
+
+test('fileMeta gives every known Modao type its own label, icon and openability', () => {
+  const expected = {
+    proto2: ['原型', '#modao_type_proto', true],
+    prototype: ['原型', '#modao_type_proto', true],
+    design2: ['设计', '#modao_type_design', true],
+    'design-draft': ['设计', '#modao_type_design', false],
+    bomx2: ['白板', '#modao_type_board', false],
+    bomx: ['白板', '#modao_type_board', false],
+    aboard: ['白板', '#modao_type_board', false],
+    zboard: ['白板', '#modao_type_board', false],
+    aippt2: ['PPT', '#modao_type_ppt', false],
+    aippt: ['PPT', '#modao_type_ppt', false],
+    'flow-chart': ['流程图', '#modao_type_flow', false],
+    flowchart: ['流程图', '#modao_type_flow', false],
+    drawio2: ['流程图', '#modao_type_flow', false],
+    'mind-map': ['思维导图', '#modao_type_mind', false],
+  };
+  for (const [type, [label, icon, openable]] of Object.entries(expected)) {
+    assert.deepEqual(fileMeta(type), { label, icon, openable }, type);
+    assert.equal(openable, editorUrl(type, 'abc') !== null, `${type}: openability must match editorUrl`);
+  }
+  for (const type of [undefined, '', 'unknown', '__proto__', 'constructor', 'toString', 'hasOwnProperty']) {
+    assert.deepEqual(fileMeta(type), { label: '文件', icon: '#modao_type_other', openable: false }, String(type));
+  }
+  const first = fileMeta('bomx2');
+  first.openable = true;
+  assert.equal(fileMeta('bomx2').openable, false, 'fileMeta must not expose mutable shared state');
+});
+
+test('normalizeName trims, bounds length and rejects control characters', () => {
+  assert.equal(normalizeName('  新原型  '), '新原型');
+  assert.equal(normalizeName('a'.repeat(80)), 'a'.repeat(80));
+  assert.equal(normalizeName('页面 / 首页 😀'), '页面 / 首页 😀');
+  for (const value of [
+    undefined, null, 42, true, {}, [], new String('abc'),
+    '', '   ', '\n', 'a'.repeat(81),
+    'a\nb', 'a\rb', 'a\tb', 'a\0b', 'a\u007fb', 'a\u0085b', 'a\u2028b', 'a\u2029b',
+  ]) {
+    assert.equal(normalizeName(value), null, JSON.stringify(String(value)));
   }
 });
 

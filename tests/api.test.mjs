@@ -5,7 +5,12 @@ import { ModaoApi } from '../src/lib/api.ts';
 // Hand-written contract fixtures based on public client code, not live account captures.
 function transport(responses) {
   const calls = [];
-  return { calls, get: async path => { calls.push(path); if (!(path in responses)) throw new Error(`Unexpected request: ${path}`); const value = responses[path]; if (value instanceof Error) throw value; return value; } };
+  const writes = [];
+  return {
+    calls, writes,
+    get: async path => { calls.push(path); if (!(path in responses)) throw new Error(`Unexpected request: ${path}`); const value = responses[path]; if (value instanceof Error) throw value; return value; },
+    write: async request => { writes.push(request); },
+  };
 }
 test('loads organizations, spaces and directory using observed route parameters', async () => {
   const source = transport({
@@ -45,6 +50,53 @@ test('permission errors are propagated without probing alternative routes', asyn
   await assert.rejects(new ModaoApi(source).contents(), e => e === forbidden);
   assert.deepEqual(source.calls, ['/api/dashboard/v5/me']);
 });
+test('createFile sends only approved types with trimmed names', async () => {
+  const source = transport({});
+  const api = new ModaoApi(source);
+  await api.createFile('proto2', 'f1', '  新原型  ');
+  await api.createFile('design2', 'f1', '新设计');
+  assert.deepEqual(source.writes, [
+    { kind: 'create', type: 'proto2', teamCid: 'f1', name: '新原型' },
+    { kind: 'create', type: 'design2', teamCid: 'f1', name: '新设计' },
+  ]);
+  assert.deepEqual(source.calls, []);
+});
+
+test('rename maps files to projects and folders to teams', async () => {
+  const source = transport({});
+  const api = new ModaoApi(source);
+  await api.rename('file', 'p1', ' 新名字 ');
+  await api.rename('folder', 'f1', '新目录');
+  assert.deepEqual(source.writes, [
+    { kind: 'rename', target: 'project', cid: 'p1', name: '新名字' },
+    { kind: 'rename', target: 'team', cid: 'f1', name: '新目录' },
+  ]);
+});
+
+test('invalid create or rename input never reaches transport', async () => {
+  const source = transport({});
+  const api = new ModaoApi(source);
+  for (const call of [
+    () => api.createFile('bomx2', 'f1', '白板'),
+    () => api.createFile('proto2', '../f1', '原型'),
+    () => api.createFile('proto2', 'f1', ''),
+    () => api.createFile('design2', 'f1', 'a\nb'),
+    () => api.rename('other', 'p1', '名字'),
+    () => api.rename('file', '../p1', '名字'),
+    () => api.rename('folder', 'f1', '   '),
+  ]) {
+    await assert.rejects(call(), e => e.kind === 'invalid');
+  }
+  assert.deepEqual(source.writes, []);
+});
+
+test('write failures propagate unchanged', async () => {
+  const failure = Object.assign(new Error('名称已存在'), { kind: 'conflict' });
+  const source = transport({});
+  source.write = async () => { throw failure; };
+  await assert.rejects(new ModaoApi(source).createFile('proto2', 'f1', '原型'), e => e === failure);
+});
+
 test('malicious organization or incomplete space context never reaches transport', async () => {
   const source = transport({}); const api = new ModaoApi(source);
   await assert.rejects(api.spaces('../other'));

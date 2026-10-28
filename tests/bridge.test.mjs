@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import { SessionBridge, requestScript, allowedPath, BridgeError } from '../src/lib/bridge.ts';
+import { SessionBridge, requestScript, writeScript, allowedPath, BridgeError } from '../src/lib/bridge.ts';
 
 const userPath = '/api/dashboard/v5/users/detail';
 // Synthetic fixtures: these are not captured account responses.
@@ -15,6 +15,12 @@ function runScript(path, response, fetchOverride) {
 function jsonResponse(body, status = 200) {
   return { status, ok: status >= 200 && status < 300, redirected: false,
     url: 'https://modao.cc/api/example', headers: { get: () => 'application/json' }, json: async () => body };
+}
+function runWrite(request, response, fetchOverride) {
+  return vm.runInNewContext(writeScript(request), {
+    location: { origin: 'https://modao.cc' },
+    fetch: fetchOverride || (async () => response), AbortController, setTimeout, clearTimeout,
+  });
 }
 test('only explicitly known read endpoints and exact query keys are allowed', () => {
   for (const path of [userPath, '/api/dashboard/v5/me', '/api/dashboard/v6/orgs',
@@ -66,6 +72,81 @@ test('bridge refuses requests without a ready same-origin page and rejects stale
   await assert.rejects(bridge.get(userPath), e => e.kind === 'authentication');
   assert.equal(calls, 1);
 });
+test('writeScript creates only prototypes and designs through the verified internal routes', async () => {
+  const seen = [];
+  const capture = async (path, options) => { seen.push({ path, options }); return jsonResponse({ clientData: { projectUpper: { cid: 'new' } }, token: 'secret' }); };
+  assert.deepEqual(JSON.parse(JSON.stringify(await runWrite({ kind: 'create', type: 'proto2', teamCid: 'f1', name: '新原型' }, null, capture))), { status: 200 });
+  assert.equal(seen[0].path, '/flpak/w-paknew?upperType=project-basic&type=proto2&teamCid=f1');
+  assert.equal(seen[0].options.method, 'POST');
+  assert.equal(seen[0].options.credentials, 'same-origin');
+  assert.equal(seen[0].options.redirect, 'error');
+  assert.match(seen[0].options.headers['content-type'], /^application\/json/);
+  assert.deepEqual(JSON.parse(seen[0].options.body), { name: '新原型', device: 'iphone', model: 'iPhoneX', width: 375, height: 812 });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(await runWrite({ kind: 'create', type: 'design2', teamCid: 'f1', name: '新设计' }, null, capture))), { status: 200 });
+  assert.equal(seen[1].path, '/api/design/web_v1/create_design_project?teamCid=f1');
+  assert.equal(seen[1].options.method, 'POST');
+  assert.deepEqual(JSON.parse(seen[1].options.body), { newOpt: { name: '新设计' } });
+});
+
+test('writeScript renames projects and folders with partial update bodies', async () => {
+  const seen = [];
+  const capture = async (path, options) => { seen.push({ path, options }); return jsonResponse({ project: { cid: 'p1' }, team: { cid: 'f1' } }); };
+  await runWrite({ kind: 'rename', target: 'project', cid: 'p1', name: '改名' }, null, capture);
+  await runWrite({ kind: 'rename', target: 'team', cid: 'f1', name: '新目录' }, null, capture);
+  assert.equal(seen[0].path, '/api/dashboard/v5/projects/p1');
+  assert.equal(seen[0].options.method, 'PUT');
+  assert.deepEqual(JSON.parse(seen[0].options.body), { project: { cid: 'p1', name: '改名' } });
+  assert.equal(seen[1].path, '/api/dashboard/v5/teams/f1');
+  assert.equal(seen[1].options.method, 'PUT');
+  assert.deepEqual(JSON.parse(seen[1].options.body), { team: { name: '新目录' } });
+});
+
+test('writeScript fails closed on unsupported types, malicious CIDs and invalid names', () => {
+  for (const request of [
+    { kind: 'create', type: 'bomx2', teamCid: 'f1', name: '白板' },
+    { kind: 'create', type: 'proto2', teamCid: '../f1', name: '原型' },
+    { kind: 'create', type: 'design2', teamCid: 'f1', name: '' },
+    { kind: 'create', type: 'design2', teamCid: 'f1', name: 'a\nb' },
+    { kind: 'rename', target: 'project', cid: '../p1', name: '改名' },
+    { kind: 'rename', target: 'team', cid: 'f1', name: '   ' },
+    { kind: 'rename', target: 'other', cid: 'f1', name: '改名' },
+  ]) {
+    assert.throws(() => writeScript(request), e => e instanceof BridgeError && e.kind === 'invalid');
+  }
+  assert.equal(allowedPath('/api/dashboard/v5/projects/p1'), false, 'write routes must never be GET-readable');
+  assert.equal(allowedPath('/flpak/w-paknew?upperType=project-basic&type=proto2&teamCid=f1'), false);
+});
+
+test('bridge.write maps write failures and never returns response bodies', async () => {
+  const bridge = new SessionBridge();
+  const page = { getURL: () => 'https://modao.cc/workspace/home', executeJavaScript: async () => ({ status: 200 }) };
+  bridge.attach(page);
+  assert.equal(await bridge.write({ kind: 'rename', target: 'team', cid: 'f1', name: '改名' }), undefined);
+  for (const [status, kind] of [[400, 'rejected'], [401, 'authentication'], [403, 'forbidden'], [404, 'not-found'], [409, 'conflict'], [500, 'http']]) {
+    page.executeJavaScript = async () => ({ status, data: { token: 'secret' } });
+    await assert.rejects(bridge.write({ kind: 'rename', target: 'project', cid: 'p1', name: '改名' }), e => e.kind === kind && e.status === status, String(status));
+  }
+  page.executeJavaScript = async () => ({ data: { token: 'secret' } });
+  await assert.rejects(bridge.write({ kind: 'rename', target: 'project', cid: 'p1', name: '改名' }), e => e.kind === 'schema');
+  page.executeJavaScript = async () => ({ error: 'network' });
+  await assert.rejects(bridge.write({ kind: 'rename', target: 'project', cid: 'p1', name: '改名' }), e => e.kind === 'network');
+});
+
+test('bridge.write requires a ready same-origin page and cancels stale writes', async () => {
+  const bridge = new SessionBridge();
+  await assert.rejects(bridge.write({ kind: 'rename', target: 'team', cid: 'f1', name: '改名' }), e => e.kind === 'not-ready');
+  let release;
+  const page = { getURL: () => 'https://modao.cc/workspace/home', executeJavaScript: async () => new Promise(resolve => { release = resolve; }) };
+  bridge.attach(page);
+  const pending = bridge.write({ kind: 'rename', target: 'team', cid: 'f1', name: '改名' });
+  bridge.detach(page);
+  release({ status: 200 });
+  await assert.rejects(pending, e => e.kind === 'cancelled');
+  page.getURL = () => 'https://evil.test/workspace/home'; bridge.attach(page);
+  await assert.rejects(bridge.write({ kind: 'rename', target: 'team', cid: 'f1', name: '改名' }), e => e.kind === 'authentication');
+});
+
 test('bridge classifies HTTP status and releases resources on disposal', async () => {
   const bridge = new SessionBridge();
   const page = { getURL: () => 'https://modao.cc/workspace/home', executeJavaScript: async () => ({status: 403}) };

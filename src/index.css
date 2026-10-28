@@ -16,6 +16,20 @@
 .modao-workspace-arrow { margin-left:auto; color:var(--b3-theme-on-surface); }
 .modao-directory { overflow:auto; flex:1; min-height:0; padding:0 6px; }
 .modao-tree-list { list-style:none; margin:0; padding:0; }
+.modao-tree-line { display:flex; align-items:center; gap:2px; }
+.modao-tree-line .modao-row { flex:1; min-width:0; }
+.modao-tree-line .modao-row span { min-width:0; flex:0 1 auto; }
+.modao-tree-line .modao-more { flex:0 0 auto; height:18px; padding:0 7px; border:1px solid var(--b3-border-color); border-radius:9px; background:transparent; color:var(--b3-theme-on-surface); font-size:10px; line-height:16px; opacity:.55; }
+.modao-tree-line:hover .modao-more, .modao-tree-line .modao-more:hover, .modao-tree-line .modao-more:focus-visible { opacity:1; }
+.modao-tree-line .modao-more:hover { background:var(--b3-list-hover); color:var(--b3-theme-on-background); }
+.modao-type-badge { margin-left:auto; flex:0 0 auto; padding:0 4px; border-radius:3px; background:var(--b3-theme-surface); color:var(--b3-theme-on-surface); font-size:10px; line-height:15px; }
+.modao-row span.modao-type-badge { overflow:visible; text-overflow:clip; }
+.modao-dialog { margin:4px 0 6px 14px; padding:8px; border:1px solid var(--b3-border-color); border-radius:4px; background:var(--b3-theme-surface); }
+.modao-dialog-title { margin:0 0 6px; font-size:12px; line-height:1.5; color:var(--b3-theme-on-surface); overflow-wrap:anywhere; }
+.modao-dialog input { width:100%; box-sizing:border-box; padding:4px 6px; border:1px solid var(--b3-border-color); border-radius:4px; background:var(--b3-theme-background); color:var(--b3-theme-on-background); font:inherit; }
+.modao-dialog input:focus { outline:2px solid var(--b3-theme-primary); outline-offset:-2px; }
+.modao-dialog-actions { display:flex; justify-content:flex-end; gap:4px; margin-top:6px; }
+.modao-primary { font-weight:600; }
 .modao-indent { padding-left:14px; }
 .modao-source-title { font-weight:500; }
 .modao-note { margin:6px 8px; line-height:1.6; color:var(--b3-theme-on-surface); font-size:12px; overflow-wrap:anywhere; }

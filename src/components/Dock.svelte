@@ -9,6 +9,8 @@
   export let bridge: SessionBridge;
   export let onWorkspace: () => void;
   export let onOpen: (node: TreeNode) => void;
+  export let onExternal: (node: TreeNode) => void = () => {};
+  export let onCopy: (node: TreeNode) => void = () => {};
   export let onLogout: () => Promise<boolean>;
   let generation = 0;
   let request = 0;
@@ -74,9 +76,9 @@
     {#if error}<p class="modao-note modao-error" role="alert">{error}</p>{/if}
     {#if !busy && loggedIn}
       {#key generation}
-        <Source name="个人文件" kind="personal" {api} {onOpen} />
+        <Source name="个人文件" kind="personal" {api} {onOpen} {onExternal} {onCopy} />
         {#each organizations as org (org.cid)}
-          <Source name={org.name} kind="org" orgCid={org.cid} {api} {onOpen} />
+          <Source name={org.name} kind="org" orgCid={org.cid} {api} {onOpen} {onExternal} {onCopy} />
         {/each}
       {/key}
     {:else if !busy && !loggedIn}

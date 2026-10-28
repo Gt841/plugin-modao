@@ -25,6 +25,46 @@ export interface TreeNode {
   children: TreeNode[];
 }
 
+export interface FileMeta {
+  label: string;
+  icon: string;
+  openable: boolean;
+}
+
+// Project types come from the public Modao client. The icon list is a stable
+// subset; anything else falls back to a generic file icon.
+const fileMetas: Record<string, FileMeta> = {
+  proto2: { label: '原型', icon: '#modao_type_proto', openable: true },
+  prototype: { label: '原型', icon: '#modao_type_proto', openable: true },
+  design2: { label: '设计', icon: '#modao_type_design', openable: true },
+  'design-draft': { label: '设计', icon: '#modao_type_design', openable: false },
+  bomx2: { label: '白板', icon: '#modao_type_board', openable: false },
+  bomx: { label: '白板', icon: '#modao_type_board', openable: false },
+  aboard: { label: '白板', icon: '#modao_type_board', openable: false },
+  zboard: { label: '白板', icon: '#modao_type_board', openable: false },
+  aippt2: { label: 'PPT', icon: '#modao_type_ppt', openable: false },
+  aippt: { label: 'PPT', icon: '#modao_type_ppt', openable: false },
+  'flow-chart': { label: '流程图', icon: '#modao_type_flow', openable: false },
+  flowchart: { label: '流程图', icon: '#modao_type_flow', openable: false },
+  drawio2: { label: '流程图', icon: '#modao_type_flow', openable: false },
+  'mind-map': { label: '思维导图', icon: '#modao_type_mind', openable: false },
+};
+
+export function fileMeta(type: string | undefined): FileMeta {
+  const meta = typeof type === 'string' && Object.hasOwn(fileMetas, type) ? fileMetas[type] : undefined;
+  return meta ? { ...meta } : { label: '文件', icon: '#modao_type_other', openable: false };
+}
+
+export const NAME_MAX = 80;
+
+export function normalizeName(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const name = value.trim();
+  if (!name || name.length > NAME_MAX) return null;
+  if (/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(name)) return null;
+  return name;
+}
+
 export function validCid(value: unknown): value is string {
   return typeof value === 'string' && value.length >= 1 && value.length <= 128
     && !/[^A-Za-z0-9_-]/.test(value);
