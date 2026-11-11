@@ -57,26 +57,28 @@
 </script>
 
 <div class="modao-dock">
-  <header class="modao-toolbar">
-    <span class="modao-title">墨刀</span>
-    <button class="modao-icon-button" title="刷新目录" aria-label="刷新目录" disabled={busy || !sessionActive} on:click={refresh}>
-      <svg aria-hidden="true"><use href="#modao_refresh" /></svg>
-    </button>
-    <button class="modao-icon-button" title={loggedIn ? '退出墨刀登录' : '登录墨刀'}
-      aria-label={loggedIn ? '退出墨刀登录' : '登录墨刀'} on:click={loginOrLogout}>
-      <svg aria-hidden="true"><use href={loggedIn ? '#modao_logout' : '#modao_login'} /></svg>
-    </button>
+  <header class="block__icons modao-toolbar">
+    <div class="block__logo modao-logo" title="墨刀 · 目录树">
+      <svg class="block__logoicon modao-logo-icon" aria-hidden="true"><use href="#modao_logo" /></svg>
+      <span class="modao-title">墨刀</span>
+    </div>
+    <span class="fn__flex-1 fn__space" />
+    <div class="modao-dock-actions">
+      <button class="block__icon" title="刷新目录" aria-label="刷新目录" disabled={busy || !sessionActive} on:click={refresh}>
+        <svg aria-hidden="true"><use href="#modao_refresh" /></svg>
+      </button>
+      <button class="block__icon" title={loggedIn ? '退出墨刀登录' : '登录墨刀'}
+        aria-label={loggedIn ? '退出墨刀登录' : '登录墨刀'} on:click={loginOrLogout}>
+        <svg aria-hidden="true"><use href={loggedIn ? '#modao_logout' : '#modao_login'} /></svg>
+      </button>
+    </div>
   </header>
-  <button class="modao-workspace modao-row" on:click={onWorkspace}>
-    <svg aria-hidden="true"><use href="#modao_logo" /></svg><span>打开墨刀工作台</span>
-    <span class="modao-workspace-arrow" aria-hidden="true">↗</span>
-  </button>
   <div class="modao-directory" aria-label="墨刀文件目录" aria-busy={busy}>
     {#if busy}<p class="modao-note" role="status">正在连接墨刀…</p>{/if}
     {#if error}<p class="modao-note modao-error" role="alert">{error}</p>{/if}
     {#if !busy && loggedIn}
       {#key generation}
-        <Source name="个人文件" kind="personal" {api} {onOpen} {onExternal} {onCopy} />
+        <Source name="个人文件" kind="personal" hideWhenEmpty {api} {onOpen} {onExternal} {onCopy} />
         {#each organizations as org (org.cid)}
           <Source name={org.name} kind="org" orgCid={org.cid} {api} {onOpen} {onExternal} {onCopy} />
         {/each}
@@ -87,8 +89,20 @@
       </div>
     {/if}
   </div>
-  <p class="modao-footnote">目录接口为墨刀内部接口；完整功能请使用工作台。</p>
   <div class="modao-session-host" aria-hidden="true">
     {#if sessionActive}{#key generation}<Guest src={WORKSPACE_URL} {bridge} onReady={loadDirectory} onFailure={failed} />{/key}{/if}
   </div>
 </div>
+
+<style>
+  /* Same native toolbar structure and metrics as the BoardMix dock. */
+  .modao-toolbar { display:flex; flex-wrap:nowrap; align-items:center; }
+  .modao-logo { display:flex; align-items:center; min-width:0; margin-right:0; flex:0 1 auto; overflow:hidden; }
+  .modao-logo-icon { flex:0 0 auto; fill:currentColor; }
+  .modao-title { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .modao-dock-actions { display:flex; flex-direction:row; flex-wrap:nowrap; align-items:center; gap:2px; flex:0 0 auto; margin-left:4px; }
+  .modao-dock-actions .block__icon { width:24px; height:24px; min-width:24px; min-height:24px; margin-left:0; padding:0; justify-content:center; cursor:pointer; opacity:1!important; visibility:visible!important; }
+  .modao-dock-actions .block__icon:hover { background-color:var(--b3-list-hover); border-radius:var(--b3-border-radius,4px); }
+  .modao-dock-actions .block__icon:disabled { color:var(--b3-theme-on-surface); cursor:wait; opacity:.6!important; }
+  .modao-dock-actions .block__icon svg { width:14px; height:14px; fill:currentColor; }
+</style>

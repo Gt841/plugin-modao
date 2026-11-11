@@ -107,7 +107,7 @@
           aria-expanded={node.kind === 'folder' ? expanded.has(node.key) : undefined}
           on:click={() => activate(node)}
           on:contextmenu={(event) => showMenu(node, event)}>
-          <svg aria-hidden="true" class="modao-node-chevron" class:modao-rotated={expanded.has(node.key)}>
+          <svg aria-hidden="true" class={node.kind === 'folder' ? 'modao-node-chevron' : 'modao-node-icon'} class:modao-rotated={expanded.has(node.key)}>
             <use href={node.kind === 'folder' ? '#modao_chevron' : (meta ? meta.icon : '#modao_type_other')} />
           </svg>
           {#if node.kind === 'folder'}

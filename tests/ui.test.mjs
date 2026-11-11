@@ -362,7 +362,7 @@ test('guest detaches its session and removes event handlers on component destruc
 test('dock exposes refresh and login controls, checks session and refreshes loaded roots', async () => {
   const Dock = await component('src/components/Dock.svelte');
   let opened=0, logouts=0, checks=0;
-  const ui=mount(Dock,{api:{checkLogin:async()=>{checks++},organizations:async()=>[{cid:'o1',name:'设计组'}]},bridge:{attach(){},detach(){}},onWorkspace:()=>opened++,onOpen:()=>{},onLogout:async()=>{logouts++;return false;}});
+  const ui=mount(Dock,{api:{checkLogin:async()=>{checks++},organizations:async()=>[{cid:'o1',name:'设计组'}],contents:async()=>({folders:[],projects:[],limited:false})},bridge:{attach(){},detach(){}},onWorkspace:()=>opened++,onOpen:()=>{},onLogout:async()=>{logouts++;return false;}});
   try {
     const refresh=ui.target.querySelector('button[aria-label="刷新目录"]');
     const login=ui.target.querySelector('button[aria-label="登录墨刀"]');
@@ -381,4 +381,41 @@ test('dock exposes refresh and login controls, checks session and refreshes load
     assert.equal(refresh.disabled,true);
     ui.instance.resume(); await flush(); assert.ok(ui.target.querySelector('webview'));
   } finally {ui.cleanup();}
+});
+
+test('dock header shows the Modao logo and drops the workspace card and footnote', async () => {
+  const Dock = await component('src/components/Dock.svelte');
+  const ui = mount(Dock, {
+    api: { checkLogin: async () => {}, organizations: async () => [], contents: async () => ({ folders: [], projects: [], limited: false }) },
+    bridge: { attach() {}, detach() {} }, onWorkspace: () => {}, onOpen: () => {}, onLogout: async () => false,
+  });
+  try {
+    const logo = ui.target.querySelector('.block__logo use[href="#modao_logo"]');
+    assert.ok(logo, 'header must show the Modao logo before the title');
+    assert.equal(ui.target.querySelector('.modao-workspace'), null, 'workspace card must be gone');
+    assert.equal(ui.target.textContent.includes('打开墨刀工作台'), false);
+    ui.target.querySelector('webview').dispatchEvent(new dom.window.Event('dom-ready')); await flush();
+    assert.equal(ui.target.textContent.includes('个人文件'), false, 'empty personal root must stay hidden');
+    assert.equal(ui.target.textContent.includes('暂无文件'), false);
+    assert.equal(ui.target.textContent.includes('目录接口为墨刀内部接口'), false, 'footer note must be gone');
+  } finally { ui.cleanup(); }
+});
+
+test('personal root only renders when it has entries', async () => {
+  const Source = await component('src/components/Source.svelte');
+  const empty = mount(Source, { name: '个人文件', kind: 'personal', hideWhenEmpty: true, api: { contents: async () => ({ folders: [], projects: [], limited: false }) }, onOpen: () => {} });
+  try {
+    await flush();
+    assert.equal(empty.target.textContent.includes('个人文件'), false);
+  } finally { empty.cleanup(); }
+  const ui = mount(Source, {
+    name: '个人文件', kind: 'personal', hideWhenEmpty: true,
+    api: { contents: async () => ({ folders: [], projects: [{ cid: 'p', name: '页一', type: 'proto2' }], limited: false }) },
+    onOpen: () => {},
+  });
+  try {
+    await flush();
+    assert.ok(findButton(ui.target, '个人文件'), 'non-empty root must render');
+    assert.ok(findButton(ui.target, '页一'), 'non-empty root opens automatically');
+  } finally { ui.cleanup(); }
 });

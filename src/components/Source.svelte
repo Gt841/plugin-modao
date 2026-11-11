@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { Menu } from 'siyuan';
   import type { CreateFolderTarget, CreateType, ModaoApi, NamedItem } from '../lib/api.ts';
   import { buildTree, normalizeName, type Folder, type TreeNode } from '../lib/model.ts';
@@ -13,6 +13,8 @@
   export let onOpen: (node: TreeNode) => void;
   export let onExternal: (node: TreeNode) => void = () => {};
   export let onCopy: (node: TreeNode) => void = () => {};
+  // Dock roots dismount instead of showing a permanent empty state.
+  export let hideWhenEmpty = false;
   let expanded = false;
   let loaded = false;
   let loading = false;
@@ -32,6 +34,12 @@
   let dialogInput: HTMLInputElement | undefined;
   let destroyed = false;
   onDestroy(() => { destroyed = true; });
+  onMount(() => {
+    if (!hideWhenEmpty) return;
+    expanded = true;
+    void load();
+  });
+  $: hidden = hideWhenEmpty && !loading && !error && !limited && nodes.length === 0;
   function messageOf(cause: unknown) {
     return cause instanceof Error ? cause.message : '操作失败，请重试。';
   }
@@ -171,6 +179,7 @@
   }
 </script>
 
+{#if !hidden}
 <section class="modao-source">
   <div class="modao-tree-line">
     <button class="modao-row modao-source-title" title={name} aria-expanded={expanded} on:click={toggle}>
@@ -214,3 +223,4 @@
     </div>
   {/if}
 </section>
+{/if}

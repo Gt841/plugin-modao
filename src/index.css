@@ -1,26 +1,19 @@
 .modao-tab { height:100%; min-height:0; }
-.modao-dock { height:100%; display:flex; flex-direction:column; position:relative; color:var(--b3-theme-on-background); font-size:13px; min-width:0; }
+.modao-dock { height:100%; display:flex; flex-direction:column; position:relative; color:var(--b3-theme-on-background); font-size:inherit; min-width:0; }
 .modao-dock button, .modao-pane button { font:inherit; cursor:pointer; }
-.modao-toolbar { display:flex; flex-wrap:nowrap; align-items:center; gap:4px; padding:8px; min-height:32px; box-sizing:border-box; }
-.modao-title { flex:1; min-width:0; font-weight:600; white-space:nowrap; }
-.modao-icon-button { display:flex; align-items:center; justify-content:center; width:26px; height:26px; flex:0 0 26px; border:0; border-radius:4px; padding:5px; background:transparent; color:var(--b3-theme-on-background); opacity:1!important; visibility:visible!important; }
-.modao-icon-button:disabled { color:var(--b3-theme-on-surface); cursor:wait; }
-.modao-icon-button svg { width:16px; height:16px; fill:currentColor; }
-.modao-icon-button:hover, .modao-row:hover, .modao-text-button:hover { background:var(--b3-list-hover); }
+.modao-row:hover, .modao-text-button:hover { background:var(--b3-list-hover); }
 .modao-dock button:focus-visible, .modao-pane button:focus-visible { outline:2px solid var(--b3-theme-primary); outline-offset:-2px; }
-.modao-row { width:100%; display:flex; align-items:center; gap:6px; min-height:30px; border:0; border-radius:4px; background:transparent; color:inherit; text-align:left; padding:5px 7px; }
-.modao-row svg { height:14px; width:14px; flex:0 0 14px; fill:currentColor; }
+.modao-row { width:100%; display:flex; align-items:center; gap:4px; min-height:28px; border:0; border-radius:var(--b3-border-radius,4px); background:transparent; color:inherit; text-align:left; padding:2px 4px; }
+.modao-row svg { height:16px; width:16px; flex:0 0 16px; fill:currentColor; }
 .modao-row span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .modao-rotated { transform:rotate(90deg); }
-.modao-workspace { width:calc(100% - 16px); margin:0 8px 8px; border:1px solid var(--b3-border-color); }
-.modao-workspace-arrow { margin-left:auto; color:var(--b3-theme-on-surface); }
-.modao-directory { overflow:auto; flex:1; min-height:0; padding:0 6px; }
+.modao-directory { overflow:auto; flex:1; min-height:0; padding:8px 0; }
 .modao-tree-list { list-style:none; margin:0; padding:0; }
-.modao-tree-line { display:flex; align-items:center; gap:2px; }
+.modao-tree-line { display:flex; align-items:center; gap:2px; padding:0 8px; }
 .modao-tree-line .modao-row { flex:1; min-width:0; }
 .modao-tree-line .modao-row span { min-width:0; flex:0 1 auto; }
-.modao-row svg.modao-node-chevron { height:12px; width:12px; flex:0 0 12px; opacity:.7; }
-.modao-row svg.modao-node-icon { height:15px; width:15px; flex:0 0 15px; opacity:.9; }
+.modao-row svg.modao-node-chevron { height:14px; width:14px; flex:0 0 14px; opacity:.7; }
+.modao-row svg.modao-node-icon { height:16px; width:16px; flex:0 0 16px; opacity:.9; }
 .modao-tree-line .modao-more { flex:0 0 20px; width:20px; height:22px; padding:0; border:0; border-radius:4px; background:transparent; color:var(--b3-theme-on-surface); font-size:16px; line-height:1; opacity:0; }
 .modao-tree-line:hover .modao-more, .modao-tree-line .modao-more:focus-visible { opacity:1; }
 .modao-tree-line .modao-more:hover { background:var(--b3-list-hover); color:var(--b3-theme-on-background); }
@@ -33,13 +26,12 @@
 .modao-dialog input:focus { outline:2px solid var(--b3-theme-primary); outline-offset:-2px; }
 .modao-dialog-actions { display:flex; justify-content:flex-end; gap:4px; margin-top:6px; }
 .modao-primary { font-weight:600; }
-.modao-indent { padding-left:14px; }
-.modao-source-title { font-weight:500; }
+.modao-indent { padding-left:18px; }
+.modao-source-title { font-weight:400; }
 .modao-note { margin:6px 8px; line-height:1.6; color:var(--b3-theme-on-surface); font-size:12px; overflow-wrap:anywhere; }
 .modao-error { color:var(--b3-theme-error); }
 .modao-signin { padding:20px 10px; text-align:center; color:var(--b3-theme-on-surface); line-height:1.8; }
 .modao-signin .b3-button { font-size:13px; }
-.modao-footnote { margin:8px; padding-top:8px; border-top:1px solid var(--b3-border-color); font-size:11px; line-height:1.5; color:var(--b3-theme-on-surface); }
 .modao-session-host { position:absolute; width:1px; height:1px; overflow:hidden; opacity:0; pointer-events:none; bottom:0; left:0; }
 .modao-guest { display:flex; width:100%; height:100%; min-height:0; flex:1; border:0; }
 .modao-pane { height:100%; min-height:0; display:flex; flex-direction:column; position:relative; }
