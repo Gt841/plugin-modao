@@ -98,7 +98,7 @@
   /* Same native toolbar structure and metrics as the BoardMix dock. */
   .modao-toolbar { display:flex; flex-wrap:nowrap; align-items:center; }
   .modao-logo { display:flex; align-items:center; min-width:0; margin-right:0; flex:0 1 auto; overflow:hidden; }
-  .modao-logo-icon { flex:0 0 auto; fill:currentColor; }
+  .modao-logo-icon { flex:0 0 auto; fill:currentColor; width:18px; height:18px; padding:2px; }
   .modao-title { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
   .modao-dock-actions { display:flex; flex-direction:row; flex-wrap:nowrap; align-items:center; gap:2px; flex:0 0 auto; margin-left:4px; }
   .modao-dock-actions .block__icon { width:24px; height:24px; min-width:24px; min-height:24px; margin-left:0; padding:0; justify-content:center; cursor:pointer; opacity:1!important; visibility:visible!important; }

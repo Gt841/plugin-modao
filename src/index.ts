@@ -9,7 +9,7 @@ import { installNavigationGuard } from './lib/navigation.ts';
 import './index.css';
 
 const TAB_TYPE = 'modao_view';
-const ICONS = `<symbol id="modao_logo" viewBox="0 0 24 24"><rect x="2" y="2" width="4" height="9" rx="0.3"/><rect x="9" y="2" width="4" height="9" rx="0.3"/><path d="M17 2h5v6c0 7-3 11-8 14l-2-4c4-2 5-5 5-10z"/></symbol>
+const ICONS = `<symbol id="modao_logo" viewBox="0 0 24 24"><rect x="2" y="2" width="5.5" height="10" rx="0.4"/><rect x="9.5" y="2" width="5.5" height="10" rx="0.4"/><path d="M17 2h5v6.5c0 6.7-3 10.8-8 13.5l-2.2-4.1c4.2-2 5.2-5 5.2-9.4z"/></symbol>
 <symbol id="modao_chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7-1.5-1.5L13 12 7.5 6.5z"/></symbol>
 <symbol id="modao_folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.2c.4 0 .78.16 1.06.44L11.2 8h8.3A1.5 1.5 0 0 1 21 9.5v8A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/></symbol>
 <symbol id="modao_refresh" viewBox="0 0 24 24"><path d="M20 4v7h-7l2.7-2.7A6 6 0 1 0 18 14h2a8 8 0 1 1-3-7.1z"/></symbol>
